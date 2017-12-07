@@ -1,6 +1,8 @@
 #
 # Based on and modified from Lesson5.py from...
+# Many changes - the lesson source was just a place for me to start. Other information sources used:
 #
+# 
 # Provenance:
 # downloaded from: https://code.launchpad.net/~mcfletch/pyopengl-demo/trunk (Dec 2017)
 # Ported to PyOpenGL 2.0 by Tarn Weisner Burton 10May2001
