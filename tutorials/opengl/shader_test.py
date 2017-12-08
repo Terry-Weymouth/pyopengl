@@ -33,6 +33,8 @@ def InitGL(Width, Height):  # We call this right after our OpenGL window is crea
     glEnable(GL_DEPTH_TEST)  # Enables Depth Testing
     glShadeModel(GL_SMOOTH)  # Enables Smooth Color Shading
 
+    glEnable(GL_CULL_FACE)  # back-face culling
+
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()  # Reset The Projection Matrix
     # Calculate The Aspect Ratio Of The Window
