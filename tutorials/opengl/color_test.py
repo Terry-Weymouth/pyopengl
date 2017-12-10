@@ -95,16 +95,9 @@ def DrawGLScene():
         glUseProgram(program)
 
     rot += 1.0
-    glTranslatef(0.0, 0.0, -20.0)
+    glTranslatef(0.0, 0.0, -5.0)
     glRotatef(rot, 0, 1.0, 0)
 
-    dumb_bell_lattice(stick_r)
-
-    #  since this is double buffered, swap the buffers to display what just got drawn.
-    glutSwapBuffers()
-
-
-def dumb_bell_lattice(stick_r):
     glTranslate(-1, -1, 0)
 
     # dumb-bell lattice
@@ -119,6 +112,9 @@ def dumb_bell_lattice(stick_r):
         glTranslate(-x, 0, 0)
 
     glTranslate(1, 1, 0)
+
+    #  since this is double buffered, swap the buffers to display what just got drawn.
+    glutSwapBuffers()
 
 
 # The function called whenever a key is pressed. Note the use of Python tuples to pass in: (key, x, y)
