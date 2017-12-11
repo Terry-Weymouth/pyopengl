@@ -1,17 +1,7 @@
 #!/usr/bin/env python
 #
-# Copied from: https://gist.github.com/MarshalW/6229166
-#
-# 3.1.3 added toggle on for shader by pressing "g" (for glsl).  Doesn't seem to
-# want to toggle back off.  plVShader looks identical to phong.  To see toon
-# shader change lines 163 and 164 to vShader = toonVShader
-# and fShader = toonFShader
-#
-# 3.1.4 Attempting to add a more complex shader!  I may add some more lights
-# too
-# 3.1.4.1 Have multiple lights but only light0 works when shader is
-# toggled on.  Check by commenting out lights in InitGL3D
-#       ----------
+# Copy/change from original: https://gist.github.com/MarshalW/6229166
+# Retained parts, essentially, phong render code; structure
 #
 from math import *
 from time import sleep
@@ -26,188 +16,11 @@ from numpy import *
 program = 0
 vShader = None
 fShader = None
-myshader = "off"
-shaders = ["toon", "toon2", "phong", "pl", "phongMulti"]
 
 # ==============================================================
-# Shader definitions and functions...
+# Shader (vector, function) definition
 # ==============================================================
-phongMultiVShader = [
-    '''
-    varying vec3 normal, eyeVec;
-    #define MAX_LIGHTS 8
-    #define NUM_LIGHTS 3
-    varying vec3 lightDir[MAX_LIGHTS];
-    void main()
-    {
-      gl_Position = ftransform();
-      normal = gl_NormalMatrix * gl_Normal;
-      vec4 vVertex = gl_ModelViewMatrix * gl_Vertex;
-      eyeVec = -vVertex.xyz;
-      int i;
-      for (i=0; i<NUM_LIGHTS; ++i)
-        lightDir[i] =
-          vec3(gl_LightSource[i].position.xyz - vVertex.xyz);
-}
-    ''',
-]
-
-phongMultiFShader = [
-    '''
-    varying vec3 normal, eyeVec;
-    #define MAX_LIGHTS 8
-    #define NUM_LIGHTS 3
-    varying vec3 lightDir[MAX_LIGHTS];
-    void main (void)
-    {
-      vec4 final_color =
-           gl_FrontLightModelProduct.sceneColor;
-      vec3 N = normalize(normal);
-      int i;
-      for (i=0; i<NUM_LIGHTS; ++i)
-      {
-        vec3 L = normalize(lightDir[i]);
-        float lambertTerm = dot(N,L);
-        if (lambertTerm > 0.0)
-        {
-          final_color +=
-            gl_LightSource[i].diffuse *
-            gl_FrontMaterial.diffuse *
-            lambertTerm;
-          vec3 E = normalize(eyeVec);
-          vec3 R = reflect(-L, N);
-          float specular = pow(max(dot(R, E), 0.0),
-                               gl_FrontMaterial.shininess);
-          final_color +=
-            gl_LightSource[i].specular *
-            gl_FrontMaterial.specular *
-            specular;
-        }
-      }
-      gl_FragColor = final_color;
-    }
-    ''',
-]
-
-plVShader = [
-    '''
-    varying vec3 normal, lightDir, eyeVec;
-
-    void main()
-    {  
-	normal = gl_NormalMatrix * gl_Normal;
-
-	vec3 vVertex = vec3(gl_ModelViewMatrix * gl_Vertex);
-
-	lightDir = vec3(gl_LightSource[0].position.xyz - vVertex);
-	eyeVec = -vVertex;
-
-	gl_Position = ftransform();		
-    }
-    ''',
-]
-
-plFShader = [
-    '''
-    varying vec3 normal, lightDir, eyeVec;
-
-    void main (void)
-    {
-	vec4 final_color = 
-	(gl_FrontLightModelProduct.sceneColor * gl_FrontMaterial.ambient) + 
-	(gl_LightSource[0].ambient * gl_FrontMaterial.ambient);
-							
-	vec3 N = normalize(normal);
-	vec3 L = normalize(lightDir);
-	
-	float lambertTerm = dot(N,L);
-	
-	if(lambertTerm > 0.0)
-	{
-		final_color += gl_LightSource[0].diffuse * 
-		               gl_FrontMaterial.diffuse * 
-					   lambertTerm;	
-		
-		vec3 E = normalize(eyeVec);
-		vec3 R = reflect(-L, N);
-		float specular = pow( max(dot(R, E), 0.0), 
-		                 gl_FrontMaterial.shininess );
-		final_color += gl_LightSource[0].specular * 
-		               gl_FrontMaterial.specular * 
-					   specular;	
-	}
-
-	gl_FragColor = final_color;			
-    }
-    ''',
-]
-
-# A Toon style shader (Works!)
-
-toonVShader = [
-    '''
-    varying vec3 normal;
-    void main() {
-        normal = gl_NormalMatrix * gl_Normal;
-        gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
-    }
-    ''',
-]
-
-toonFShader = [
-    '''
-    varying vec3 normal;
-    void main() {
-        float intensity;
-        vec4 color;
-        vec3 n = normalize(normal);
-        vec3 l = normalize(gl_LightSource[0].position).xyz;
-
-        // quantize to 10 steps 
-        intensity = (floor(dot(l, n) * 9.0) + 1.0)/9.0;
-        color = vec4(intensity*1.0, intensity*0.5, intensity*0.25,
-            intensity*0.125);
-
-        gl_FragColor = color;
-    }
-    ''',
-]
-# A Toon style shader (mike's version)
-
-toon2VShader = [
-    '''
-    varying vec3 normal;
-    void main() {
-        normal = gl_NormalMatrix * gl_Normal;
-        gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
-    }
-    ''',
-]
-
-toon2FShader = [
-    '''
-    varying vec3 normal;
-    void main() {
-        float intensity, intensity0, intensity1;
-        vec4 color;
-        vec3 n = normalize(normal);
-        vec3 l0 = normalize(gl_LightSource[0].position).xyz;
-        vec3 l1 = normalize(gl_LightSource[1].position).xyz;
-
-        // quantize to 10 steps (light 0)
-        intensity0 = (floor(dot(l0, n) * 9.0) + 1.0)/9.0;
-        intensity1 = (floor(dot(l1, n) * 99.0) + 1.0)/99.0;
-        intensity = (intensity0+intensity1)/2.0;
-
-        color = vec4(intensity*1.0, intensity*0.5, intensity*0.25,
-            intensity*0.125);
-
-        gl_FragColor = color;
-    }
-    ''',
-]
-
-# A simple phong shader (not currently working)
+# A simple phong shader (does not work, yet, for multiple lights)
 
 phongVShader = [
     '''
@@ -234,14 +47,14 @@ phongFShader = [
        vec3 L = normalize(gl_LightSource[0].position.xyz - v);   
        vec3 E = normalize(-v); // we are in Eye Coordinates, so EyePos is (0,0,0)  
        vec3 R = normalize(-reflect(L,N));  
-     
+
        //calculate Ambient Term:  
        vec4 Iamb = gl_FrontLightProduct[0].ambient;    
 
        //calculate Diffuse Term:  
        vec4 Idiff = gl_FrontLightProduct[0].diffuse * max(dot(N,L), 0.0);
        Idiff = clamp(Idiff, 0.0, 1.0);     
-       
+
        // calculate Specular Term:
        vec4 Ispec = gl_FrontLightProduct[0].specular 
                     * pow(max(dot(R,E),0.0),0.3*gl_FrontMaterial.shininess);
@@ -252,42 +65,6 @@ phongFShader = [
     }
     ''',
 ]
-
-
-# ================================
-# Assign the shader to be used...
-# ================================
-def pickShader(direction):
-    # pop a shader name from the global list and use it to put the correct shader
-    # source in the text objects vShader and fShader
-    global shaders, vShader, fShader, program, myshader
-    if direction == "left":
-        shaders.reverse()
-        shaders.append(myshader)
-        shaders.reverse()
-        myshader = shaders.pop()
-    elif direction == "right":
-        shaders.append(myshader)
-        myshader = shaders.pop(0)
-    print("myshader = ", myshader)
-    if myshader == "off":
-        program = 0
-    else:
-        vShaderName = myshader + "VShader"
-        fShaderName = myshader + "FShader"
-        vShader = eval(vShaderName)
-        fShader = eval(fShaderName)
-        initShader()
-
-
-def compileShader(source, shaderType):
-    """Compile shader source of given type"""
-    shader = glCreateShader(shaderType)
-    # print "glShaderSource:", bool(glShaderSource)
-    glShaderSource(shader, source)
-    glCompileShader(shader)
-    return shader
-
 
 def compileProgram(vertexSource=None, fragmentSource=None):
     program = glCreateProgram()
@@ -309,15 +86,9 @@ def compileProgram(vertexSource=None, fragmentSource=None):
 
     return program
 
-
-def initShader():
-    global program
-    program = compileProgram(vShader, fShader)
-
-
 # ===================================================
 
-# Handle key press events 
+# Handle key press events
 def keyPressed(*args):
     print("key = ", args)
     # note shaderNumber still not in use
@@ -375,14 +146,6 @@ def keyPressed(*args):
             light1 = True
         else:
             light1 = False
-    # change shader
-    elif args[0] == b',':
-        pickShader("left")
-        print("shader = left")
-    elif args[0] == b'.':
-        pickShader("right")
-        print("shader = right")
-
 
 def initLight0():
     LightAmbient = ((0.0, 0.0, 0.0, 1.0))
@@ -429,7 +192,7 @@ def initLight1():
 # Initialize the OpenGL window using 3D perspective projection
 def InitGL3D(Width, Height):
     # Setup a 2D projection
-    global zdist
+    global zdist, program
     glClearColor(1.0, 1.0, 1.0, 1.0)
     glClearDepth(1.0)
     initLight0()
@@ -448,7 +211,7 @@ def InitGL3D(Width, Height):
     glRotate(180.0, 1.0, 0.0, 0.0)
     glColor(176. / 255., 146. / 255., 113. / 255.)
     # Initialize the Shader(s)!!!?
-    # initShader()
+    program = compileProgram(phongVShader,phongFShader)
     # Initialize buffer objects for vertices and normal array data
     initVBOs()
 
@@ -465,10 +228,11 @@ def initVBOs():
 
 
 # ================================================
-# Draw the scene.  Draw a glutSolidSphere and 
+# Draw the scene.  Draw a glutSolidSphere and
 # draw a shape from the a gmsh triangle array
 # ================================================
 def drawScene():
+    global program
     glEnable(GL_LIGHTING)
     if light0:
         glEnable(GL_LIGHT0)
@@ -521,8 +285,8 @@ def drawScene():
     glPushMatrix()
     glLoadIdentity()
     glDisable(GL_LIGHTING)
-#    drawGLtext(labeltext, -320, -220)
-#    drawGLtext(infotext, -300, -400)
+    #    drawGLtext(labeltext, -320, -220)
+    #    drawGLtext(infotext, -300, -400)
     glPopMatrix()
     glutSwapBuffers()
     sleep(0.04)
